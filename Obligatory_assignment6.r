@@ -1,6 +1,6 @@
 library(tibble)
 library(tidyverse)
-
+library(tidyr)
 
 #TASK 1!
 DS = tribble(
@@ -14,20 +14,27 @@ DS = tribble(
   101030,40280,"Pol",NA,251611.00)
 
 
+#Make Ansvar a string
+
+DS$Ansvar <- as.character(DS$Ansvar)
+
+DS <- separate(DS, Ansvar, into = c("Ansvar1_3", "rest"), sep = 3)
+
+DS %>% group_by(Ansvar1_3) %>% summarise(sum=sum(amount))
+
 #Removing the collumn fk_project_code.
 DS$fk_project_code = NULL
 
 #Renaming labels within the ~fk_function_code.
-DS$fk_function_code[DS$fk_function_code %in% "Det"] <- "Supplies"
 
 
-DS$fk_function_code[DS$fk_function_code %in% "Sal"] <- "Supplies"
+DS <- DS %>% mutate(new_fk_function_code =
+                case_when(fk_function_code =="Det"~"Supplies",
+                          fk_function_code =="Sal"~"Supplies",
+                          fk_function_code =="Met"~"Inventories",
+                          fk_function_code =="Pol"~"Other expenses"))
 
-
-DS$fk_function_code[DS$fk_function_code %in% "Met"] <- "Inventories"
-
-
-DS$fk_function_code[DS$fk_function_code %in% "Pol"] <- "Expenses"
+DS$fk_function_code = NULL
 
 
 #TASK 2!
@@ -35,16 +42,20 @@ df <- data.frame(Product=gl(3,10,labels=c("A","B", "C")),
                  Year=factor(rep(2002:2011,3)), 
                  Sales=1:30)
 
-df_A <- df %>%
-  filter(Product == "A") %>%
-  mutate(Sales_share = Sales/55)
+library(data.table)
 
-df_B <- df %>%
-  filter(Product == "B") %>%
-  mutate(Sales_share = Sales/165)
 
-df_C <- df %>%
-  filter(Product == "C") %>%
-  mutate(Sales_share = Sales/255)
+DT <- data.table(df)
 
-df <- rbind(df_A, df_B, df_C)
+# Choose index variable or key variable, when using data.table
+
+setkey(DT, "Year")
+# Calculate shares by year
+DT <- DT[ , Share := Sales/(sum(Sales)), by=list(Year)]
+
+library(latticeExtra)
+asTheEconomist(
+xyplot(Sales + Share ~ Year, groups=Product, data = DT,
+       t="b", scales=list(relation="free", x=list(rot=45)),
+       auto.key=list(space="top", column=3),
+       main="Product information"))
